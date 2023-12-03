@@ -4,6 +4,7 @@ import yt_dlp
 import time
 from fastapi import FastAPI
 from fastapi.exceptions import HTTPException
+from fastapi.responses import FileResponse
 from pydantic import BaseModel
 from yt_dlp.postprocessor import FFmpegPostProcessor
 
@@ -42,16 +43,17 @@ def health():
 
 @app.post("/api/download")
 def download_video(body: YtVideoDownloadRequestBody):
-    file_name = f'{generate_random_file_name()}.m4a'
+    file_extension = 'mp3'
+    file_name = f'{generate_random_file_name(file_extension)}'
     urls = [body.url]
     ydl_opts = {
         'outtmpl': {
             'default': "/".join([download_path, file_name]),
         },
-        'format': 'm4a/bestaudio/best',
+        'format': 'bestaudio/best',
         'postprocessors': [{
             'key': 'FFmpegExtractAudio',
-            'preferredcodec': 'm4a',
+            'preferredcodec': 'mp3',
         }]
     }
 
@@ -59,6 +61,7 @@ def download_video(body: YtVideoDownloadRequestBody):
         error_code = ydl.download(urls)
 
     if error_code == 0:
-        return {"status": "success", "file_name": file_name}
+        file_path = os.path.join(download_path, file_name)
+        return FileResponse(file_path, filename=file_name, media_type=f'audio/{file_extension}')
     else:
-        raise HTTPException(506, detail="download failed for internal server error")
+        raise HTTPException(500, detail="Download failed for internal server error")
